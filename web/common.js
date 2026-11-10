@@ -1,7 +1,7 @@
 (function initializeCommon(root) {
   "use strict";
 
-  const STORAGE_KEY = "assembly.assign.records.v1";
+  const API_URL = "../api/app";
 
   function injectBaseStyles() {
     if (document.getElementById("common-styles")) return;
@@ -53,10 +53,10 @@
         <nav class="top-nav" aria-label="주요 화면">
           <a href="./index.html" class="${active === "home" ? "active" : ""}">시작 화면</a>
           <a href="./assign.html" class="${active === "assign" ? "active" : ""}">배분</a>
-          <button type="button" disabled title="S6에서 제공 예정">현업 회신</button>
+          <a href="./dept.html" class="${active === "dept" ? "active" : ""}">현업 회신</a>
           <button type="button" disabled title="S8에서 제공 예정">취합</button>
         </nav>
-        <span class="nav-spacer"></span><span class="local-badge">이 PC에만 저장</span>
+        <span class="nav-spacer"></span><span class="local-badge">공유 저장소 연결</span>
       </div>`;
   }
 
@@ -90,8 +90,32 @@
   }
 
   async function readCsvFile(file) { return parseCsv(await file.text()); }
-  function loadRecords() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; } }
-  function saveRecords(records) { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+  async function fetchCases() {
+    const response = await fetch(API_URL, { cache: "no-store" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(body.error || `공유 저장소를 읽지 못했습니다 (${response.status}).`);
+      error.status = response.status;
+      throw error;
+    }
+    if (!Array.isArray(body)) throw new Error("공유 저장소 응답 형식이 올바르지 않습니다.");
+    return body;
+  }
+
+  async function postAction(action) {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(action),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(body.error || `저장하지 못했습니다 (${response.status}).`);
+      error.status = response.status;
+      throw error;
+    }
+    return body;
+  }
   function makeId() { return crypto.randomUUID?.() ?? `item-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
   function escapeHtml(value) { const node = document.createElement("div"); node.textContent = String(value ?? ""); return node.innerHTML; }
   function showToast(message) {
@@ -118,5 +142,5 @@
     });
   }
 
-  root.Common = { STORAGE_KEY, mountNavigation, parseCsv, loadCsv, readCsvFile, loadRecords, saveRecords, makeId, escapeHtml, showToast, initEffects };
+  root.Common = { API_URL, mountNavigation, parseCsv, loadCsv, readCsvFile, fetchCases, postAction, makeId, escapeHtml, showToast, initEffects };
 })(globalThis);

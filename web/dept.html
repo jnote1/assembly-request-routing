@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,">
+  <title>현업 회신</title>
+  <script src="./common.js"></script>
+  <style>
+    .page-head{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:24px}.department-box{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+    .field{display:grid;gap:6px}.field label{font-size:12px;font-weight:800;color:var(--muted)}.field select,.field input,.field textarea{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
+    .field textarea{min-height:78px;resize:vertical}.department-box select{min-width:210px}.summary{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}.pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:13px}.pill strong{color:var(--navy);margin-left:5px}
+    .case-list{display:grid;gap:16px}.case-card{padding:22px;display:grid;gap:16px}.case-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.case-head h2{font-size:18px;margin:0}.meta{font-size:12px;color:var(--muted);margin-top:5px}.status{display:inline-flex;padding:6px 9px;border-radius:999px;background:var(--sky);color:#184b9b;font-size:12px;font-weight:850;white-space:nowrap}
+    .request{padding:14px;background:#f7f9fc;border-radius:12px;line-height:1.65}.reply-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.action-row{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}.reassign{display:none;padding-top:12px;border-top:1px solid var(--line)}.reassign.open{display:grid;grid-template-columns:1fr 1fr;gap:12px}.empty{padding:44px;text-align:center;color:var(--muted)}
+    .skeleton{height:160px;border-radius:20px;background:linear-gradient(90deg,#e9edf3 25%,#f7f9fc 42%,#e9edf3 60%);background-size:220% 100%;animation:shimmer 1.2s linear infinite}@keyframes shimmer{to{background-position:-220% 0}}
+    .form-error{animation:shake .28s ease}@keyframes shake{30%,70%{transform:translateX(-6px)}50%{transform:translateX(6px)}}
+    @media(max-width:800px){.page-head{align-items:start;flex-direction:column}.reply-grid,.reassign.open{grid-template-columns:1fr}.case-head{flex-direction:column}}
+    @media(prefers-reduced-motion:reduce){.skeleton{animation:none}.form-error{animation:none}}
+  </style>
+</head>
+<body>
+  <header data-app-header></header>
+  <main class="page-shell">
+    <header class="page-head" data-reveal><div><div class="eyebrow">Department response</div><h1 class="page-title">우리 과 문항을 확인하고 회신합니다.</h1>
+      <p class="page-lead">주관·협조 과로 배분된 문항만 골라 보고, 회신 엑셀의 파일명과 메모를 공유 저장소에 기록합니다.</p></div>
+      <div class="department-box"><div class="field"><label for="department">내 과 선택</label><select id="department"><option value="">과를 선택하세요</option></select></div><button class="btn btn-ghost" id="refresh" type="button">새로고침</button></div></header>
+    <div class="summary"><span class="pill">담당 문항 <strong id="case-count">0</strong></span><span class="pill">회신할 문항 <strong id="waiting-count">0</strong></span></div>
+    <section class="case-list" id="case-list" aria-live="polite"><div class="skeleton" aria-label="공유 문항을 불러오는 중"></div><div class="skeleton" aria-hidden="true"></div></section>
+  </main>
+  <script type="module">
+    Common.mountNavigation("dept");Common.initEffects();
+    const els={department:document.querySelector("#department"),refresh:document.querySelector("#refresh"),list:document.querySelector("#case-list"),count:document.querySelector("#case-count"),waiting:document.querySelector("#waiting-count")};
+    let cases=[],departments=[];
+    const assignedTo=(item,department)=>item.주관과===department||(item.협조과||[]).includes(department);
+    const waitingFor=(item,department)=>!(item.과별회신||[]).some(reply=>reply.과===department)&&["배분확정","회신중","보완요청"].includes(item.상태);
+    const optionHtml=(selected="")=>departments.map(dep=>`<option value="${Common.escapeHtml(dep)}" ${dep===selected?"selected":""}>${Common.escapeHtml(dep)}</option>`).join("");
+    function render(){const department=els.department.value,items=department?cases.filter(item=>assignedTo(item,department)):[];els.count.textContent=items.length;els.waiting.textContent=items.filter(item=>waitingFor(item,department)).length;
+      if(!department){els.list.innerHTML='<div class="panel empty">먼저 내 과를 선택해 주세요.</div>';return}if(!items.length){els.list.innerHTML='<div class="panel empty">현재 배분된 문항이 없습니다.</div>';return}
+      els.list.innerHTML=items.map(item=>{const replied=(item.과별회신||[]).find(reply=>reply.과===department),disabled=!waitingFor(item,department);return `<article class="panel case-card" data-id="${Common.escapeHtml(item.id)}"><div class="case-head"><div><h2>${Common.escapeHtml(item.의원)} · ${Common.escapeHtml(item.문항번호)}번</h2><div class="meta">${Common.escapeHtml(item.위원회||"")} · 제출기한 ${Common.escapeHtml(item.제출기한||"확인필요")} · ${item.주관과===department?"주관":"협조"}</div></div><span class="status">${Common.escapeHtml(item.상태)}</span></div>
+        <div class="request">${Common.escapeHtml(item.요구내용)}</div><div class="reply-grid"><div class="field"><label>회신 엑셀</label><input class="reply-file" type="file" accept=".xlsx,.xls" ${disabled?"disabled":""}><small class="meta">파일 내용은 브라우저에서만 읽고 서버에는 파일명·메모만 기록합니다.</small></div><div class="field"><label>회신 메모</label><textarea class="reply-memo" placeholder="확인사항 또는 회신 범위를 적어 주세요." ${disabled?"disabled":""}>${Common.escapeHtml(replied?.메모||"")}</textarea></div></div>
+        <div class="action-row"><button class="btn btn-ghost reassign-toggle" type="button" ${disabled?"disabled":""}>재배정 요청</button><button class="btn btn-primary reply-submit" type="button" ${disabled?"disabled":""}>${replied?"회신 완료":"회신 제출"}</button></div>
+        <div class="reassign"><div class="field"><label>재배정 사유</label><textarea class="reassign-reason" placeholder="사유는 필수입니다."></textarea></div><div class="field"><label>희망 과</label><select class="desired-department"><option value="">선택 안 함</option>${optionHtml()}</select></div><div class="action-row"><button class="btn btn-primary reassign-submit" type="button">요청 보내기</button></div></div></article>`}).join("")}
+    async function reload(){els.list.innerHTML='<div class="skeleton" aria-label="공유 문항을 불러오는 중"></div><div class="skeleton" aria-hidden="true"></div>';try{cases=await Common.fetchCases();render()}catch(error){els.list.innerHTML=`<div class="panel empty">${Common.escapeHtml(error.message)}</div>`}}
+    els.department.addEventListener("change",render);els.refresh.addEventListener("click",reload);
+    els.list.addEventListener("click",async event=>{const card=event.target.closest("[data-id]");if(!card)return;const item=cases.find(row=>row.id===card.dataset.id),department=els.department.value;if(!item||!department)return;
+      if(event.target.closest(".reassign-toggle")){card.querySelector(".reassign").classList.toggle("open");return}
+      if(event.target.closest(".reply-submit")){const file=card.querySelector(".reply-file").files[0],memo=card.querySelector(".reply-memo").value.trim();if(!file){card.classList.remove("form-error");void card.offsetWidth;card.classList.add("form-error");Common.showToast("회신 엑셀을 선택해 주세요.");return}event.target.disabled=true;try{await Common.postAction({작업:"회신",id:item.id,과:department,파일명:file.name,행:[],메모,확인필요:[]});await reload();Common.showToast("회신을 공유 저장소에 기록했습니다.")}catch(error){if(error.status===409)await reload();Common.showToast(error.message)}finally{event.target.disabled=false}return}
+      if(event.target.closest(".reassign-submit")){const reason=card.querySelector(".reassign-reason").value.trim(),desired=card.querySelector(".desired-department").value;if(!reason){card.classList.remove("form-error");void card.offsetWidth;card.classList.add("form-error");Common.showToast("재배정 사유를 입력해 주세요.");return}event.target.disabled=true;try{await Common.postAction({작업:"재배정요청",id:item.id,과:department,사유:reason,희망과:desired});await reload();Common.showToast("재배정 요청을 기록했습니다.")}catch(error){if(error.status===409)await reload();Common.showToast(error.message)}finally{event.target.disabled=false}}
+    });
+    try{departments=(await Common.loadCsv("./data/A부_조직도_26개과.csv")).map(row=>row.과).filter(Boolean);els.department.insertAdjacentHTML("beforeend",optionHtml())}catch(error){Common.showToast(error.message)}await reload();
+  </script>
+</body>
+</html>
