@@ -32,7 +32,7 @@
     <aside class="panel notice" data-reveal><strong>저장 안내</strong><p>현재 기록은 서버로 전송하지 않고 이 브라우저의 localStorage에만 저장됩니다. 다른 브라우저나 PC에서는 보이지 않습니다.</p></aside>
   </main>
   <script>
-    addEventListener("DOMContentLoaded",()=>{Common.mountNavigation("home");const r=Common.loadRecords(),c=r.filter(x=>x.status==="배분확정").length;
+    addEventListener("DOMContentLoaded",()=>{Common.mountNavigation("home");const r=Common.loadRecords(),c=r.filter(x=>(x.상태||x.status)==="배분확정").length;
       document.querySelector("#all-count").textContent=r.length;document.querySelector("#confirmed-count").textContent=c;document.querySelector("#waiting-count").textContent=r.length-c;Common.initEffects();});
   </script>
 </body>

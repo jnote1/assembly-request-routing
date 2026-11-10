@@ -50,6 +50,7 @@
   </main>
   <script type="module">
     import * as pdfjsLib from "./lib/pdf.mjs";
+    import { apply as applyFlow, FlowError } from "./flow.js";
     pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./lib/pdf.worker.mjs", import.meta.url).href;
     Common.mountNavigation("assign"); Common.initEffects();
     const els={pdf:document.querySelector("#pdf-files"),csv:document.querySelector("#csv-file"),status:document.querySelector("#process-status"),
@@ -62,19 +63,20 @@
       departments=(await Common.loadCsv("./data/A부_조직도_26개과.csv")).map(row=>row.과).filter(Boolean);
     }catch(error){Common.showToast(`기준 자료를 읽지 못했습니다: ${error.message}`)}
     const options=(selected="")=>departments.map(dep=>`<option value="${Common.escapeHtml(dep)}" ${dep===selected?"selected":""}>${Common.escapeHtml(dep)}</option>`).join("");
-    function updateCounts(){els.registered.textContent=records.length;els.assigned.textContent=records.filter(row=>row.status==="배분확정").length}
+    records=records.map(({status,...row})=>({...row,상태:row.상태||status||"접수"}));
+    function updateCounts(){els.registered.textContent=records.length;els.assigned.textContent=records.filter(row=>row.상태==="배분확정").length}
     function renderPreview(){els.preview.hidden=!previewRows.length;els.previewBody.innerHTML=previewRows.map(row=>`<tr><td>${Common.escapeHtml(row.파일명)}</td><td><strong>${Common.escapeHtml(row.의원)}</strong> ${Common.escapeHtml(row.문항번호)}번</td>
       <td>${Common.escapeHtml(row.요구내용)}</td><td class="muted">${Common.escapeHtml([row.세부항목,row.비고].filter(Boolean).join(" / ")||"-")}</td></tr>`).join("");
       els.validation.innerHTML=validations.map(v=>`<span class="validation-tag">${Common.escapeHtml(v)}</span>`).join("")}
     function coopMarkup(row){const checked=new Set(row.협조과||[]);return `<details class="coop"><summary>${checked.size?`${checked.size}개 선택`:"선택 없음"}</summary><div class="coop-box">
       ${departments.filter(dep=>dep!==row.주관과).map(dep=>`<label><input type="checkbox" value="${Common.escapeHtml(dep)}" ${checked.has(dep)?"checked":""}>${Common.escapeHtml(dep)}</label>`).join("")}</div></details>`}
     function renderRecords(){updateCounts();if(!records.length){els.body.innerHTML='<tr><td colspan="7" class="empty">아직 등록된 문항이 없습니다.</td></tr>';return}
-      els.body.innerHTML=records.map(row=>`<tr data-id="${row.id}"><td><span class="status ${row.status==="배분확정"?"done":"wait"}">${Common.escapeHtml(row.status)}</span></td>
+      els.body.innerHTML=records.map(row=>`<tr data-id="${row.id}"><td><span class="status ${row.상태==="배분확정"?"done":"wait"}">${Common.escapeHtml(row.상태)}</span></td>
         <td><div class="question-id">${Common.escapeHtml(row.의원)} · ${Common.escapeHtml(row.문항번호)}번</div><div class="question-meta">${Common.escapeHtml(row.위원회)} · ${Common.escapeHtml(row.제출기한)}</div></td>
         <td>${Common.escapeHtml(row.요구내용)}${row.세부항목?`<div class="question-meta">${Common.escapeHtml(row.세부항목)}</div>`:""}</td>
         <td><div class="candidate-list">${row.후보.length?row.후보.map((c,i)=>`<div class="candidate"><span>${i+1}. ${Common.escapeHtml(c.과)}</span><small>${c.점수}</small></div>`).join(""):'<span class="muted">확인필요</span>'}</div></td>
         <td><select class="department-select primary-select" aria-label="주관 과">${options(row.주관과)}</select></td><td>${coopMarkup(row)}</td>
-        <td class="confirm-cell"><button class="btn ${row.status==="배분확정"?"btn-ghost":"btn-primary"} confirm-button">${row.status==="배분확정"?"수정 확정":"배분 확정"}</button>
+        <td class="confirm-cell"><button class="btn ${row.상태==="배분확정"?"btn-ghost":"btn-primary"} confirm-button">${row.상태==="배분확정"?"수정 확정":"배분 확정"}</button>
           ${row.확정방법?`<div class="history-note">${Common.escapeHtml(row.확정방법)} · ${row.이력?.length||0}회</div>`:""}</td></tr>`).join("");
     }
     els.pdf.addEventListener("change",async()=>{if(!els.pdf.files.length)return;showLoading(true,`${els.pdf.files.length}개 PDF를 읽고 있습니다.`);previewRows=[];validations=[];
@@ -83,15 +85,12 @@
       catch(error){previewRows=[];renderPreview();Common.showToast(error.message)}finally{showLoading(false)}});
     els.csv.addEventListener("change",async()=>{const file=els.csv.files[0];if(!file)return;showLoading(true,"문항목록 CSV를 읽고 있습니다.");try{previewRows=RequestSplitter.fromCsvRows(await Common.readCsvFile(file));
         validations=[`${file.name}: ${previewRows.length}개 문항`];renderPreview();Common.showToast(`${previewRows.length}개 문항을 읽었습니다.`)}catch(error){Common.showToast(error.message)}finally{showLoading(false)}});
-    els.register.addEventListener("click",()=>{let added=0;for(const item of previewRows){const key=`${item.파일명}|${item.의원}|${item.문항번호}`;if(records.some(row=>row.sourceKey===key))continue;
-        const candidates=DepartmentEngine.classify(item.요구내용);records.push({id:Common.makeId(),sourceKey:key,...item,status:"접수",후보:candidates,주관과:candidates[0]?.과||departments[0]||"",협조과:[],확정방법:"",이력:[]});added++}
+    els.register.addEventListener("click",()=>{let added=0;for(const item of previewRows){const key=`${item.파일명}|${item.의원}|${item.문항번호}`;if(records.some(row=>`${row.파일명}|${row.의원}|${row.문항번호}`===key))continue;
+        const candidates=DepartmentEngine.classify(item.요구내용);try{records=applyFlow(records,{작업:"접수",문항:{id:Common.makeId(),...item,후보:candidates}},departments);added++}catch(error){if(!(error instanceof FlowError)||error.status!==409)throw error}}
       Common.saveRecords(records);renderRecords();Common.showToast(`${added}개 문항을 접수 등록했습니다.`)});
-    els.body.addEventListener("change",event=>{const tr=event.target.closest("tr[data-id]");if(!tr)return;const row=records.find(item=>item.id===tr.dataset.id);if(!row)return;
-      if(event.target.matches(".primary-select")){row.주관과=event.target.value;row.협조과=(row.협조과||[]).filter(dep=>dep!==row.주관과);Common.saveRecords(records);renderRecords()}});
     els.body.addEventListener("click",event=>{const button=event.target.closest(".confirm-button");if(!button)return;const tr=button.closest("tr[data-id]"),row=records.find(item=>item.id===tr.dataset.id);if(!row)return;
       const primary=tr.querySelector(".primary-select").value,coops=[...tr.querySelectorAll(".coop-box input:checked")].map(input=>input.value).filter(dep=>dep!==primary);
-      const method=primary===row.후보[0]?.과?"규칙":"수정",before={주관과:row.주관과,협조과:row.협조과,status:row.status};row.주관과=primary;row.협조과=coops;row.status="배분확정";row.확정방법=method;
-      row.이력=[...(row.이력||[]),{시각:new Date().toISOString(),방법:method,변경전:before,변경후:{주관과:primary,협조과:coops}}];Common.saveRecords(records);renderRecords();Common.showToast(`${row.의원} ${row.문항번호}번 배분을 확정했습니다.`)});
+      const method=primary===row.후보[0]?.과?"규칙":"수정";try{records=applyFlow(records,{작업:"배분",id:row.id,주관과:primary,협조과:coops,확정방법:method,후보:row.후보},departments);Common.saveRecords(records);renderRecords();Common.showToast(`${row.의원} ${row.문항번호}번 배분을 확정했습니다.`)}catch(error){Common.showToast(error.message)}});
     document.querySelector("#clear-records").addEventListener("click",()=>{if(!records.length||!confirm("이 브라우저에 저장된 배분 기록을 모두 비울까요?"))return;records=[];Common.saveRecords(records);renderRecords();Common.showToast("저장 기록을 비웠습니다.")});
     renderRecords();
   </script>
