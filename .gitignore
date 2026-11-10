@@ -1,0 +1,32 @@
+# 환경 변수·인증 정보
+.env
+.env.*
+!.env.example
+
+# 의존성·실행 캐시
+node_modules/
+__pycache__/
+*.py[cod]
+
+# 결과 파일·로컬 상태
+산출물/
+결과/
+output/
+outputs/
+dist/
+build/
+board_data/
+부서회신/
+
+# 실제·원본 업무 자료(공개 저장소 제외)
+원문/
+지침재료/
+99_완성본_잠금/
+data/요구자료_접수대장_2026국감_520건.csv
+data/요구자료_접수대장_2026국감_520건.xlsx
+data/검증용_접수대장_120건.csv
+data/문항목록.csv
+문항목록.csv
+*.hwp
+*.hwpx
+

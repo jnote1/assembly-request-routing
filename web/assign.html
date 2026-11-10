@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,">
+  <title>요구자료 접수·배분</title>
+  <script src="./common.js"></script><script src="./engine.js"></script><script src="./split.js"></script>
+  <style>
+    .page-head{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:26px}.summary-strip{display:flex;gap:9px;flex-wrap:wrap}
+    .summary-pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:13px}.summary-pill strong{color:var(--navy);margin-left:5px}
+    .workflow{display:grid;gap:22px}.section-panel{padding:26px}.section-title{display:flex;align-items:center;gap:13px;margin-bottom:18px}.section-title span{display:grid;place-items:center;
+      width:34px;height:34px;border-radius:11px;background:var(--navy);color:#fff;font-weight:900}.section-title h2{margin:0;font-size:21px}.section-title p{margin:3px 0 0;color:var(--muted);font-size:13px}
+    .drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.drop-zone{border:1.5px dashed #a9b8ca;border-radius:16px;padding:22px;background:#f9fbff;display:flex;align-items:center;gap:16px}
+    .drop-zone input{position:absolute;opacity:0;pointer-events:none}.drop-icon{width:44px;height:44px;border-radius:14px;background:var(--sky);display:grid;place-items:center;color:var(--blue);font-size:22px}
+    .drop-copy{flex:1}.drop-copy strong{display:block}.drop-copy small{color:var(--muted)}.file-label{cursor:pointer}.process-status{margin-top:14px;display:none;align-items:center;gap:10px;color:var(--muted)}
+    .process-status.show{display:flex}.spinner{width:19px;height:19px;border:3px solid #dce6f8;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    .preview-wrap,.assign-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}.data-table{width:100%;border-collapse:collapse;font-size:13px;min-width:880px}.data-table th{position:sticky;top:0;background:#eef3f9;color:#41516a;text-align:left;padding:12px;border-bottom:1px solid var(--line);white-space:nowrap}
+    .data-table td{padding:12px;border-bottom:1px solid #edf0f4;vertical-align:top;line-height:1.5}.data-table tr:last-child td{border-bottom:0}.muted{color:var(--muted)}
+    .preview-actions{display:flex;justify-content:space-between;align-items:center;margin:15px 0 0}.validation{display:flex;gap:8px;flex-wrap:wrap}.validation-tag{padding:6px 9px;border-radius:8px;background:#edf8f3;color:var(--good);font-size:12px;font-weight:800}
+    .status{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:850;white-space:nowrap}.status.wait{background:#fff4e5;color:var(--warn)}.status.done{background:#e9f8f1;color:var(--good)}
+    .question-id{font-weight:850;color:var(--navy)}.question-meta{font-size:11px;color:var(--muted);margin-top:3px}.candidate-list{display:flex;flex-direction:column;gap:5px;min-width:155px}
+    .candidate{display:flex;justify-content:space-between;gap:8px;background:#f3f6fa;border-radius:8px;padding:6px 8px}.candidate:first-child{background:var(--sky);color:#184b9b}.candidate small{opacity:.75}
+    .department-select{width:170px;border:1px solid var(--line);border-radius:9px;padding:8px;background:#fff}.coop{position:relative}.coop summary{list-style:none;border:1px solid var(--line);border-radius:9px;padding:8px;cursor:pointer;min-width:150px;background:#fff}
+    .coop summary::-webkit-details-marker{display:none}.coop-box{position:absolute;right:0;z-index:8;width:260px;max-height:260px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:var(--shadow)}
+    .coop-box label{display:flex;gap:8px;padding:6px;border-radius:7px}.coop-box label:hover{background:var(--paper)}.confirm-cell{min-width:105px}.history-note{font-size:11px;color:var(--muted);margin-top:6px}
+    .empty{padding:38px;text-align:center;color:var(--muted)}.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.toolbar h3{margin:0}.danger-link{border:0;background:transparent;color:#b42318;cursor:pointer;font-weight:750}
+    @media(max-width:800px){.page-head{align-items:start;flex-direction:column}.drop-grid{grid-template-columns:1fr}.section-panel{padding:18px}}
+    @media(prefers-reduced-motion:reduce){.spinner{animation:none;border-top-color:#dce6f8}}
+  </style>
+</head>
+<body>
+  <header data-app-header></header>
+  <main class="page-shell">
+    <header class="page-head" data-reveal><div><div class="eyebrow">Assignment desk</div><h1 class="page-title">접수하고, 근거를 보고, 확정합니다.</h1>
+      <p class="page-lead">PDF 여러 건 또는 문항목록 CSV를 불러올 수 있습니다. 배분 결과는 이 브라우저에만 저장됩니다.</p></div>
+      <div class="summary-strip"><span class="summary-pill">등록 <strong id="registered-count">0</strong></span><span class="summary-pill">확정 <strong id="assigned-count">0</strong></span></div></header>
+    <div class="workflow">
+      <section class="panel section-panel" data-reveal><div class="section-title"><span>1</span><div><h2>접수</h2><p>요구서에서 개인정보 줄을 제외하고 문항만 분리합니다.</p></div></div>
+        <div class="drop-grid">
+          <label class="drop-zone file-label" for="pdf-files"><input id="pdf-files" type="file" accept="application/pdf,.pdf" multiple><span class="drop-icon">PDF</span><span class="drop-copy"><strong>요구서 PDF 선택</strong><small>여러 파일을 한 번에 선택할 수 있습니다.</small></span><span class="btn btn-secondary">파일 선택</span></label>
+          <label class="drop-zone file-label" for="csv-file"><input id="csv-file" type="file" accept=".csv,text/csv"><span class="drop-icon">CSV</span><span class="drop-copy"><strong>문항목록.csv 선택</strong><small>기존 8개 열 형식을 그대로 읽습니다.</small></span><span class="btn btn-secondary">파일 선택</span></label>
+        </div><div class="process-status" id="process-status"><span class="spinner"></span><span>파일을 읽고 있습니다.</span></div>
+        <div id="preview-area" hidden><div class="preview-actions"><div class="validation" id="validation-list"></div><button class="btn btn-primary" id="register-button">접수 등록</button></div>
+          <div class="preview-wrap"><table class="data-table"><thead><tr><th>파일</th><th>의원·문항</th><th>요구내용</th><th>세부항목·비고</th></tr></thead><tbody id="preview-body"></tbody></table></div></div>
+      </section>
+      <section class="panel section-panel" data-reveal><div class="section-title"><span>2</span><div><h2>배분</h2><p>후보를 확인하고 주관 과와 협조 과를 확정합니다.</p></div></div>
+        <div class="toolbar"><h3>등록 문항</h3><button class="danger-link" id="clear-records" type="button">이 브라우저 기록 비우기</button></div>
+        <div class="assign-wrap"><table class="data-table"><thead><tr><th>상태</th><th>의원·문항</th><th>요구내용</th><th>후보 3순위</th><th>주관 과</th><th>협조 과</th><th>확정</th></tr></thead><tbody id="assign-body"></tbody></table></div>
+      </section>
+    </div>
+  </main>
+  <script type="module">
+    import * as pdfjsLib from "./lib/pdf.mjs";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("./lib/pdf.worker.mjs", import.meta.url).href;
+    Common.mountNavigation("assign"); Common.initEffects();
+    const els={pdf:document.querySelector("#pdf-files"),csv:document.querySelector("#csv-file"),status:document.querySelector("#process-status"),
+      preview:document.querySelector("#preview-area"),previewBody:document.querySelector("#preview-body"),validation:document.querySelector("#validation-list"),
+      register:document.querySelector("#register-button"),body:document.querySelector("#assign-body"),registered:document.querySelector("#registered-count"),assigned:document.querySelector("#assigned-count")};
+    let previewRows=[], validations=[], departments=[], records=Common.loadRecords();
+    const showLoading=(value,text="파일을 읽고 있습니다.")=>{els.status.classList.toggle("show",value);els.status.querySelector("span:last-child").textContent=text};
+    try{
+      await DepartmentEngine.load({rulesUrl:"./data/배분기준표_보강.csv",organizationsUrl:"./data/A부_조직도_26개과.csv"});
+      departments=(await Common.loadCsv("./data/A부_조직도_26개과.csv")).map(row=>row.과).filter(Boolean);
+    }catch(error){Common.showToast(`기준 자료를 읽지 못했습니다: ${error.message}`)}
+    const options=(selected="")=>departments.map(dep=>`<option value="${Common.escapeHtml(dep)}" ${dep===selected?"selected":""}>${Common.escapeHtml(dep)}</option>`).join("");
+    function updateCounts(){els.registered.textContent=records.length;els.assigned.textContent=records.filter(row=>row.status==="배분확정").length}
+    function renderPreview(){els.preview.hidden=!previewRows.length;els.previewBody.innerHTML=previewRows.map(row=>`<tr><td>${Common.escapeHtml(row.파일명)}</td><td><strong>${Common.escapeHtml(row.의원)}</strong> ${Common.escapeHtml(row.문항번호)}번</td>
+      <td>${Common.escapeHtml(row.요구내용)}</td><td class="muted">${Common.escapeHtml([row.세부항목,row.비고].filter(Boolean).join(" / ")||"-")}</td></tr>`).join("");
+      els.validation.innerHTML=validations.map(v=>`<span class="validation-tag">${Common.escapeHtml(v)}</span>`).join("")}
+    function coopMarkup(row){const checked=new Set(row.협조과||[]);return `<details class="coop"><summary>${checked.size?`${checked.size}개 선택`:"선택 없음"}</summary><div class="coop-box">
+      ${departments.filter(dep=>dep!==row.주관과).map(dep=>`<label><input type="checkbox" value="${Common.escapeHtml(dep)}" ${checked.has(dep)?"checked":""}>${Common.escapeHtml(dep)}</label>`).join("")}</div></details>`}
+    function renderRecords(){updateCounts();if(!records.length){els.body.innerHTML='<tr><td colspan="7" class="empty">아직 등록된 문항이 없습니다.</td></tr>';return}
+      els.body.innerHTML=records.map(row=>`<tr data-id="${row.id}"><td><span class="status ${row.status==="배분확정"?"done":"wait"}">${Common.escapeHtml(row.status)}</span></td>
+        <td><div class="question-id">${Common.escapeHtml(row.의원)} · ${Common.escapeHtml(row.문항번호)}번</div><div class="question-meta">${Common.escapeHtml(row.위원회)} · ${Common.escapeHtml(row.제출기한)}</div></td>
+        <td>${Common.escapeHtml(row.요구내용)}${row.세부항목?`<div class="question-meta">${Common.escapeHtml(row.세부항목)}</div>`:""}</td>
+        <td><div class="candidate-list">${row.후보.length?row.후보.map((c,i)=>`<div class="candidate"><span>${i+1}. ${Common.escapeHtml(c.과)}</span><small>${c.점수}</small></div>`).join(""):'<span class="muted">확인필요</span>'}</div></td>
+        <td><select class="department-select primary-select" aria-label="주관 과">${options(row.주관과)}</select></td><td>${coopMarkup(row)}</td>
+        <td class="confirm-cell"><button class="btn ${row.status==="배분확정"?"btn-ghost":"btn-primary"} confirm-button">${row.status==="배분확정"?"수정 확정":"배분 확정"}</button>
+          ${row.확정방법?`<div class="history-note">${Common.escapeHtml(row.확정방법)} · ${row.이력?.length||0}회</div>`:""}</td></tr>`).join("");
+    }
+    els.pdf.addEventListener("change",async()=>{if(!els.pdf.files.length)return;showLoading(true,`${els.pdf.files.length}개 PDF를 읽고 있습니다.`);previewRows=[];validations=[];
+      try{for(const file of els.pdf.files){const result=await RequestSplitter.readPdf(file,pdfjsLib);previewRows.push(...result.items);const v=result.validation;
+          validations.push(`${file.name}: ${v.extracted}/${v.expected||"?"} · ${v.matched?"일치 O":"확인필요 X"}`)}renderPreview();Common.showToast(`${previewRows.length}개 문항을 분리했습니다.`)}
+      catch(error){previewRows=[];renderPreview();Common.showToast(error.message)}finally{showLoading(false)}});
+    els.csv.addEventListener("change",async()=>{const file=els.csv.files[0];if(!file)return;showLoading(true,"문항목록 CSV를 읽고 있습니다.");try{previewRows=RequestSplitter.fromCsvRows(await Common.readCsvFile(file));
+        validations=[`${file.name}: ${previewRows.length}개 문항`];renderPreview();Common.showToast(`${previewRows.length}개 문항을 읽었습니다.`)}catch(error){Common.showToast(error.message)}finally{showLoading(false)}});
+    els.register.addEventListener("click",()=>{let added=0;for(const item of previewRows){const key=`${item.파일명}|${item.의원}|${item.문항번호}`;if(records.some(row=>row.sourceKey===key))continue;
+        const candidates=DepartmentEngine.classify(item.요구내용);records.push({id:Common.makeId(),sourceKey:key,...item,status:"접수",후보:candidates,주관과:candidates[0]?.과||departments[0]||"",협조과:[],확정방법:"",이력:[]});added++}
+      Common.saveRecords(records);renderRecords();Common.showToast(`${added}개 문항을 접수 등록했습니다.`)});
+    els.body.addEventListener("change",event=>{const tr=event.target.closest("tr[data-id]");if(!tr)return;const row=records.find(item=>item.id===tr.dataset.id);if(!row)return;
+      if(event.target.matches(".primary-select")){row.주관과=event.target.value;row.협조과=(row.협조과||[]).filter(dep=>dep!==row.주관과);Common.saveRecords(records);renderRecords()}});
+    els.body.addEventListener("click",event=>{const button=event.target.closest(".confirm-button");if(!button)return;const tr=button.closest("tr[data-id]"),row=records.find(item=>item.id===tr.dataset.id);if(!row)return;
+      const primary=tr.querySelector(".primary-select").value,coops=[...tr.querySelectorAll(".coop-box input:checked")].map(input=>input.value).filter(dep=>dep!==primary);
+      const method=primary===row.후보[0]?.과?"규칙":"수정",before={주관과:row.주관과,협조과:row.협조과,status:row.status};row.주관과=primary;row.협조과=coops;row.status="배분확정";row.확정방법=method;
+      row.이력=[...(row.이력||[]),{시각:new Date().toISOString(),방법:method,변경전:before,변경후:{주관과:primary,협조과:coops}}];Common.saveRecords(records);renderRecords();Common.showToast(`${row.의원} ${row.문항번호}번 배분을 확정했습니다.`)});
+    document.querySelector("#clear-records").addEventListener("click",()=>{if(!records.length||!confirm("이 브라우저에 저장된 배분 기록을 모두 비울까요?"))return;records=[];Common.saveRecords(records);renderRecords();Common.showToast("저장 기록을 비웠습니다.")});
+    renderRecords();
+  </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,">
+  <title>국회 요구자료 업무 시작</title>
+  <script src="./common.js" defer></script>
+  <style>
+    .hero{display:grid;grid-template-columns:1.35fr .65fr;gap:24px;align-items:stretch}.hero-main{padding:42px}.hero-side{padding:28px;background:var(--navy);color:#fff}
+    .hero-side h2{margin:0 0 22px;font-size:18px}.metric{padding:17px 0;border-bottom:1px solid rgba(255,255,255,.13)}.metric:last-child{border:0}
+    .metric strong{display:block;font-size:34px;letter-spacing:-.04em}.metric span{color:#b9cbe4;font-size:13px}.step-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:26px}
+    .step-card{padding:24px;min-height:210px;display:flex;flex-direction:column}.step-no{width:36px;height:36px;border-radius:11px;background:var(--sky);color:var(--blue);display:grid;place-items:center;font-weight:900}
+    .step-card h3{margin:20px 0 8px}.step-card p{margin:0;color:var(--muted);line-height:1.65}.step-card .btn{margin-top:auto;align-self:flex-start}.soon{color:#98a2b3;font-weight:800;font-size:13px;margin-top:auto}
+    .notice{margin-top:18px;padding:18px 22px;display:flex;gap:12px;align-items:flex-start}.notice strong{white-space:nowrap}.notice p{margin:0;color:var(--muted);line-height:1.6}
+    @media(max-width:900px){.hero{grid-template-columns:1fr}.step-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header data-app-header></header>
+  <main class="page-shell">
+    <section class="hero" data-reveal>
+      <div class="panel hero-main"><div class="eyebrow">Parliamentary request workflow</div><h1 class="page-title">요구자료를<br>문항부터 정확하게.</h1>
+        <p class="page-lead">PDF 요구서를 문항 단위로 나누고, 근거 키워드를 확인한 뒤 주관 과와 협조 과를 확정합니다.</p>
+        <a class="btn btn-primary" href="./assign.html">접수·배분 시작 <span aria-hidden="true">→</span></a></div>
+      <aside class="panel hero-side"><h2>이 PC의 처리 현황</h2><div class="metric"><strong id="all-count">0</strong><span>등록 문항</span></div>
+        <div class="metric"><strong id="confirmed-count">0</strong><span>배분확정</span></div><div class="metric"><strong id="waiting-count">0</strong><span>확정 대기</span></div></aside>
+    </section>
+    <section class="step-grid" data-reveal>
+      <article class="panel step-card"><span class="step-no">1</span><h3>접수·배분</h3><p>PDF 또는 문항목록 CSV를 불러오고 후보 3순위를 확인합니다.</p><a class="btn btn-secondary" href="./assign.html">배분 화면</a></article>
+      <article class="panel step-card"><span class="step-no">2</span><h3>현업 회신</h3><p>배분받은 문항을 확인하고 답변 자료를 등록하는 화면입니다.</p><span class="soon">S6에서 제공 예정</span></article>
+      <article class="panel step-card"><span class="step-no">3</span><h3>취합</h3><p>과별 회신을 모아 누락과 형식을 점검하는 화면입니다.</p><span class="soon">S8에서 제공 예정</span></article>
+    </section>
+    <aside class="panel notice" data-reveal><strong>저장 안내</strong><p>현재 기록은 서버로 전송하지 않고 이 브라우저의 localStorage에만 저장됩니다. 다른 브라우저나 PC에서는 보이지 않습니다.</p></aside>
+  </main>
+  <script>
+    addEventListener("DOMContentLoaded",()=>{Common.mountNavigation("home");const r=Common.loadRecords(),c=r.filter(x=>x.status==="배분확정").length;
+      document.querySelector("#all-count").textContent=r.length;document.querySelector("#confirmed-count").textContent=c;document.querySelector("#waiting-count").textContent=r.length-c;Common.initEffects();});
+  </script>
+</body>
+</html>

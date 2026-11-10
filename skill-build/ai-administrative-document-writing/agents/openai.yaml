@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI 행정문서 작성"
+  short_description: "사람과 AI가 모두 읽기 쉬운 행정문서 작성·점검"
+  default_prompt: "Use $ai-administrative-document-writing to draft or review a clear Korean administrative document."

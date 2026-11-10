@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "vibe-webeffect": {
+      "source": "cdsassj00/vibe-webeffect",
+      "sourceType": "github",
+      "skillPath": "skills/vibe-webeffect/SKILL.md",
+      "computedHash": "db911d17522080433eb0f20692e24f2d25bb338ae159c9f0a93608505e770a71"
+    }
+  }
+}
